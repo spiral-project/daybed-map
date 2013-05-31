@@ -6,6 +6,7 @@ settings.STYLES = settings.STYLES || {
 
 var MapModel = Definition.extend({
     metaTypes: {
+        'text': 'string',
         'color': 'string',
         'icon': 'string',
     },
@@ -33,6 +34,9 @@ var MapModel = Definition.extend({
 
     itemSchema: function () {
         var fieldMapping = {
+            'text': function () {
+                return { type: 'TextArea' }
+            },
             'color': function () {
                 return { type: 'Select', options: [
                     'red', 'blue', 'orange', 'green', 'purple',
@@ -99,7 +103,7 @@ var MapModel = Definition.extend({
     tableContent: function () {
         var tpl = '<table class="table"><thead>' +
                   '{{#fields}}<th><span title="{{description}}">{{name}}</span></th>{{/fields}}'+
-                  '</thead><tbody></tbody></table>';
+                  '<th>&nbsp;</th></thead><tbody></tbody></table>';
         return Mustache.compile(tpl)({fields: this.mainFields()});
     },
 
@@ -108,6 +112,7 @@ var MapModel = Definition.extend({
         $(this.mainFields()).each(function (i, f) {
             c += '<td>{{ ' + f.name + ' }}</td>'
         });
+        c += '<td><a href="#" class="close">x</a></td>';
         c += '</tr>';
         return Mustache.compile(c);
     },
@@ -161,17 +166,17 @@ var AddView = FormView.extend({
         this.definition = this.options.definition;
         this.layer = null;
 
+        var geomField = this.definition.geomField();
+        if (!geomField) return;
+
         // Assign dedicated layer editor from geometry field type
         var handlers = {
             'point': new L.Draw.Marker(this.map),
             'line': new L.Draw.Polyline(this.map),
             'polygon': new L.Draw.Polygon(this.map)
         };
-        var geomField = this.definition.geomField();
-        if (!geomField) return;
         this.handler = handlers[geomField.type];
         this.map.on('draw:created', this.onDraw, this);
-
         // Refresh newly created layer on form change
         this.form.on('change', this.refreshNewLayer, this);
     },
@@ -256,6 +261,7 @@ var ListView = Backbone.View.extend({
 
     events: {
         "click a#add": "addForm",
+        "click a.close": "deleteItem",
     },
 
     initialize: function (definition) {
@@ -273,10 +279,17 @@ var ListView = Backbone.View.extend({
         this.$el.html(this.template({definition: this.definition.attributes}));
         this.$("#list").html(this.definition.tableContent());
 
-        this.map = L.map(this.$("#map")[0]).setView([0, 0], 3);
-        this.map.attributionControl.setPrefix(''); 
-        L.tileLayer(settings.TILES).addTo(this.map);
-
+        // If definition contains geometry field, shows the map.
+        var $map = this.$("#map");
+        if (this.definition.geomField() !== null) {
+            this.map = L.map($map[0]).setView([0, 0], 3);
+            this.map.attributionControl.setPrefix('');
+            L.tileLayer(settings.TILES).addTo(this.map);
+        }
+        else {
+            $map.hide();
+            $('#list').width('100%');
+        }
         return this;
     },
 
@@ -379,6 +392,18 @@ var ListView = Backbone.View.extend({
         if (this.bounds.isValid() && this.collection.length > 1)
             this.map.fitBounds(this.bounds);
     },
+
+    deleteItem: function (e) {
+        e.preventDefault();
+
+        var $row = $(e.target).parents('tr'),
+            id = $row.data('id'),
+            item = this.collection.get(id);
+        if (confirm("Are you sure ?") === true) {
+            item.destroy({wait: true});
+            $row.remove();
+        }
+    }
 });
 
 
