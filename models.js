@@ -75,6 +75,11 @@ var MapModel = Definition.extend({
     },
 
     itemSchema: function () {
+        var geom = function (f) {
+            return {type: 'TextArea',
+                    editorAttrs: {style: 'display: none'},
+                    help: f.description + ' <span>(on map)</span>'};
+        };
         var fieldMapping = {
             'text': function () {
                 return { type: 'TextArea' };
@@ -94,30 +99,46 @@ var MapModel = Definition.extend({
                      options: ['food', 'glass', 'coffee']},
                     {group: 'Symbols',
                      options: ['flag', 'star', 'suitcase', 'comments']}
-                ] }; }
+                ] };
+            },
+            'point': geom,
+            'line': geom,
+            'polygon': geom
         };
         var schema = Definition.prototype.itemSchema.call(this);
         $(this.attributes.fields).each(function (i, field) {
-            if (field.meta) {
-                var build = fieldMapping[field.meta];
-                if (build)
-                    schema[field.name] = build(field);
+            var build = fieldMapping[field.meta || field.type];
+            if (build) {
+                schema[field.name] = build(field);
             }
         });
         return schema;
     },
 
     /**
-     * Override Defintion.mainFields() to remove color and icon (metaTypes)
-     * from list, except if the model has no geometry field.
+     * Returns field names that are not of type geometry.
+     * @returns {Array[string]}
      */
     mainFields: function () {
-        var mainFields = Definition.prototype.mainFields.call(this);
-        if (!this.geomField())
-            return mainFields;
-        return _.filter(mainFields, function (f) {
-            return f.meta === undefined;
+        var geomField = this.geomField();
+        if (!geomField)
+            return this.attributes.fields;
+        return this.attributes.fields.filter(function (f) {
+            return f.name != geomField.name;
         });
+    },
+
+    /**
+     * Returns the first field whose type is Geometry.
+     * @returns {string} ``null`` if no geometry field in *Definition*
+     */
+    geomField: function () {
+        for (var i in this.attributes.fields) {
+            var f = this.attributes.fields[i];
+            if (f.type == 'point' || f.type == 'line' || f.type == 'polygon')
+                return f;
+        }
+        return null;
     },
 
     _getField: function (metatype) {
