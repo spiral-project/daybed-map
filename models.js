@@ -47,32 +47,10 @@ var MapItemList = ItemList.extend({
 
 
 var MapModel = Definition.extend({
-    metaTypes: {
-        'text': 'string',
+    metaTypes: _.extend(Definition.prototype.metaTypes, {
         'color': 'string',
         'icon': 'string'
-    },
-
-    initialize: function () {
-        // Add meta types to schema choice list
-        var choices = this.schema.fields.subSchema.type.options;
-        for (var metatype in this.metaTypes) {
-            if (!_.contains(choices, metatype))
-                choices.push(metatype);
-        }
-    },
-
-    save: function () {
-        // Substitute meta types by daybed types
-        $(this.attributes.fields).each(L.Util.bind(function (i, field) {
-            var meta = this.metaTypes[field.type];
-            if (meta) {
-                field.meta = field.type;
-                field.type = meta;
-            }
-        }, this));
-        Definition.prototype.save.apply(this, arguments);
-    },
+    }),
 
     itemSchema: function () {
         var geom = function (f) {
@@ -81,9 +59,6 @@ var MapModel = Definition.extend({
                     help: f.description + ' <span>(on map)</span>'};
         };
         var fieldMapping = {
-            'text': function () {
-                return { type: 'TextArea' };
-            },
             'color': function () {
                 return { type: 'Select', options: [
                     'red', 'blue', 'orange', 'green', 'purple',
@@ -141,16 +116,16 @@ var MapModel = Definition.extend({
         return null;
     },
 
-    _getField: function (metatype) {
+    _getFields: function (metatype) {
         return _.filter(this.attributes.fields,
-                        function(f) { return f.meta == metatype; })[0];
+                        function(f) { return f.meta == metatype; });
     },
 
     colorField: function () {
-        return this._getField('color');
+        return this._getFields('color')[0];
     },
 
     iconField: function () {
-        return this._getField('icon');
+        return this._getFields('icon')[0];
     }
 });
