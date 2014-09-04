@@ -1,48 +1,37 @@
-var DefinitionCreate = FormView.extend({
+var DefinitionCreate = Daybed.FormView.extend({
     model: MapModel,
 
     initialize: function () {
-        FormView.prototype.initialize.call(this);
-        this.modelname = this.options.modelname;
-        this.title = 'Create ' + this.modelname;
-        this.instance.set({id: this.modelname,
-                           title: this.modelname,
-                           description: this.modelname});
-        return this;
+        Daybed.FormView.prototype.initialize.call(this);
+
+        this.instance = new this.model({
+            id: this.modelname,
+            title: this.modelname,
+            description: this.modelname
+        });
     },
 
     cancel: function () {
         app.navigate('', {trigger:true});
     },
 
-    submit: function() {
-        // Since daybed definitions must be created with PUT.
-        // We make sure id is not lost.
-        var id = this.instance.get('id');
-        FormView.prototype.submit.apply(this, arguments);
-        this.instance.set({'id': id});
-        this.instance.save({wait: true});
-    },
-
     /**
-     * On success, store token for later use, and redirect to list view.
+     * Redirect to list view.
      */
     success: function (model, response, options) {
-        var storage = window.localStorage || {};
-        storage["daybed.token." + this.modelname] = response.token;
         app.navigate(this.modelname, {trigger:true});
     }
 });
 
 
-var AddView = FormView.extend({
-    model: MapItem,
+var AddView = Daybed.RecordFormView.extend({
+    model: MapRecord,
 
     initialize: function () {
-        FormView.prototype.initialize.call(this);
+
+        Daybed.RecordFormView.prototype.initialize.call(this);
         this.map = this.options.map;
         this.collection = this.options.collection;
-        this.definition = this.options.definition;
         this.layer = null;
 
         var geomField = this.definition.geomField();
@@ -61,7 +50,7 @@ var AddView = FormView.extend({
     },
 
     render: function () {
-        FormView.prototype.render.apply(this, arguments);
+        Daybed.RecordFormView.prototype.render.apply(this, arguments);
         if (this.handler) {
             this.handler.enable();
             this.$el.append('<span class="map-help alert">Click on map</span>');
@@ -89,7 +78,7 @@ var AddView = FormView.extend({
     },
 
     submit: function(e) {
-        FormView.prototype.submit.apply(this, arguments);
+        Daybed.RecordFormView.prototype.submit.apply(this, arguments);
         this.collection.create(this.instance, {wait: true});
     },
 
@@ -135,12 +124,12 @@ var ListView = Backbone.View.extend({
                                '<h1>{{ definition.title }}</h1>' +
                                '{{#definition.token}}<div class="alert"><strong>Creation token</strong>: {{ definition.token }}</div>{{/definition.token}}' +
                                '<p>{{ definition.description }}</p><div id="toolbar"><a id="add" class="btn">Add</a></div>' +
-                               '<div id="stats"><span class="count">0</span> items in total.</div>' +
+                               '<div id="stats"><span class="count">0</span> records in total.</div>' +
                                '<div id="list"></div>'),
 
     events: {
         "click a#add": "addForm",
-        "click a.close": "deleteItem"
+        "click a.close": "deleteRecord"
     },
 
     initialize: function (definition) {
@@ -148,13 +137,14 @@ var ListView = Backbone.View.extend({
         this.map = null;
         this.grouplayer = L.featureGroup();
 
-        this.collection = new MapItemList(definition);
+        this.collection = new MapRecordList(definition);
         this.collection.bind('add', this.addOne, this);
         // Fit map to layer bounds when both collection and map are ready
         this.collection.bind('sync', function () {
             // Zoom-in effet
             setTimeout((function () {
-                this.map.fitBounds(this.grouplayer.getBounds());
+                if (this.map)
+                    this.map.fitBounds(this.grouplayer.getBounds());
             }).bind(this), 1500);
         }, this);
         // Fetch records!
@@ -183,6 +173,8 @@ var ListView = Backbone.View.extend({
     addForm: function (e) {
         e.preventDefault();
 
+        console.log(this.definition);
+
         this.addView = new AddView({map:this.map,
                                     definition:this.definition,
                                     collection:this.collection});
@@ -193,27 +185,27 @@ var ListView = Backbone.View.extend({
         this.$("a#add").after(this.addView.render().el);
     },
 
-    addOne: function (item) {
+    addOne: function (record) {
         var tpl = this.templateRow(this.definition);
-        this.$('table tbody').prepend(tpl(item.toJSON()));
+        this.$('table tbody').prepend(tpl(record.toJSON()));
         this.$('span.count').html(this.collection.length);
 
-        var layer = item.getLayer();
+        var layer = record.getLayer();
         if (layer) {
             var style = L.Util.extend({}, window.DAYBED_SETTINGS.STYLES['default']);
 
             // Has color ?
             var colorField = this.definition.colorField();
             if (colorField) {
-                style.color = item.get(colorField.name);
+                style.color = record.get(colorField.name);
                 style.fillColor = style.color;
             }
             // Has icon ?
             var iconField = this.definition.iconField();
-            if (iconField && 'point' == item.definition.geomField().type) {
+            if (iconField && 'point' == record.definition.geomField().type) {
                 var marker = L.AwesomeMarkers.icon({
                     color: style.color,
-                    icon: item.get(iconField.name)
+                    icon: record.get(iconField.name)
                 });
                 layer = L.marker(layer.getLatLng(), {icon: marker, bounceOnAdd: true});
             }
@@ -221,11 +213,11 @@ var ListView = Backbone.View.extend({
                 layer.setStyle(style);
             }
 
-            layer.bindPopup(this.templatePopup(this.definition)(item.toJSON()));
+            layer.bindPopup(this.templatePopup(this.definition)(record.toJSON()));
             this.grouplayer.addLayer(layer);
 
-            // Row and map items highlighting
-            var row = this.$("tr[data-id='" + item.get('id') + "']");
+            // Row and map records highlighting
+            var row = this.$("tr[data-id='" + record.get('id') + "']");
             layer.on('mouseover', function (e) {
                 if (this.setStyle) this.setStyle(window.DAYBED_SETTINGS.STYLES.highlight);
                 // Pop on top
@@ -264,16 +256,16 @@ var ListView = Backbone.View.extend({
         }
     },
 
-    deleteItem: function (e) {
+    deleteRecord: function (e) {
         e.preventDefault();
 
         var $row = $(e.target).parents('tr'),
             id = $row.data('id'),
-            item = this.collection.get(id);
+            record = this.collection.get(id);
         if (confirm("Are you sure ?") === true) {
-            item.destroy({wait: true});
-            this.map.removeLayer(item.layer);
-            this.collection.remove(item);
+            record.destroy({wait: true});
+            this.map.removeLayer(record.layer);
+            this.collection.remove(record);
             $row.remove();
         }
     },

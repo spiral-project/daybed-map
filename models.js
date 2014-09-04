@@ -1,4 +1,4 @@
-var MapItem = Item.extend({
+var MapRecord = Daybed.Record.extend({
     /**
      * Returns instance layer, if its model has a geometry field.
      * It basically builds a Leaflet layer, from the coordinates values
@@ -41,18 +41,18 @@ var MapItem = Item.extend({
 });
 
 
-var MapItemList = ItemList.extend({
-    model: MapItem
+var MapRecordList = Daybed.RecordList.extend({
+    model: MapRecord
 });
 
 
-var MapModel = Definition.extend({
-    metaTypes: _.extend(Definition.prototype.metaTypes, {
+var MapModel = Daybed.Definition.extend({
+    metaTypes: _.extend(Daybed.Definition.prototype.metaTypes, {
         'color': 'string',
         'icon': 'string'
     }),
 
-    itemSchema: function () {
+    recordSchema: function () {
         var geom = function (f) {
             return {type: 'TextArea',
                     editorAttrs: {style: 'display: none'},
@@ -80,7 +80,7 @@ var MapModel = Definition.extend({
             'line': geom,
             'polygon': geom
         };
-        var schema = Definition.prototype.itemSchema.call(this);
+        var schema = Daybed.Definition.prototype.recordSchema.call(this);
         $(this.attributes.fields).each(function (i, field) {
             var build = fieldMapping[field.meta || field.type];
             if (build) {

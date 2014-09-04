@@ -1,6 +1,8 @@
-window.DAYBED_SETTINGS.TILES = (window.DAYBED_SETTINGS.TILES || "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png");
+window.Daybed.SETTINGS.SERVER = 'http://daybed.lolnet.org';
 
-window.DAYBED_SETTINGS.STYLES = L.Util.extend((window.DAYBED_SETTINGS.STYLES || {}), {
+window.Daybed.SETTINGS.TILES = (window.Daybed.SETTINGS.TILES || "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png");
+
+window.Daybed.SETTINGS.STYLES = L.Util.extend((window.Daybed.SETTINGS.STYLES || {}), {
     'default': {color: 'green', fillColor: 'green', opacity: 0.5},
     'highlight': {color: 'yellow', fillColor: 'yellow', opacity: 1.0}
 });
