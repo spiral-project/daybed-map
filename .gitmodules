@@ -16,3 +16,6 @@
 [submodule "libs/leaflet.bouncemarker"]
 	path = libs/leaflet.bouncemarker
 	url = git://github.com/maximeh/leaflet.bouncemarker.git
+[submodule "libs/backbone-daybed"]
+	path = libs/backbone-daybed
+	url = git@github.com:spiral-project/backbone-daybed.git
