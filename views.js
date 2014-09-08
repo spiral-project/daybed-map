@@ -1,25 +1,28 @@
 var DefinitionCreate = Daybed.FormView.extend({
     model: MapModel,
 
-    initialize: function () {
-        Daybed.FormView.prototype.initialize.call(this);
-
-        this.instance = new this.model({
+    setup: function () {
+        var instance = new this.model({
             id: this.modelname,
             title: this.modelname,
             description: this.modelname
         });
+        return Daybed.FormView.prototype.setup.call(this, instance);
     },
 
     cancel: function () {
-        app.navigate('', {trigger:true});
+        Daybed.FormView.prototype.cancel.apply(this, arguments);
+        app.navigate('', {trigger: true});
+        return false;
     },
 
     /**
      * Redirect to list view.
      */
-    success: function (model, response, options) {
-        app.navigate(this.modelname, {trigger:true});
+    success: function () {
+        Daybed.FormView.prototype.success.apply(this, arguments);
+        app.navigate(this.modelname, {trigger: true});
+        return false;
     }
 });
 
@@ -71,10 +74,12 @@ var AddView = Daybed.RecordFormView.extend({
 
     cancel: function () {
         this.close();
+        return false;
     },
 
     success: function () {
         this.close();
+        return false;
     },
 
     submit: function(e) {
@@ -122,9 +127,7 @@ var AddView = Daybed.RecordFormView.extend({
 var ListView = Backbone.View.extend({
     template: Mustache.compile('<div id="map"></div>' +
                                '<h1>{{ definition.title }}</h1>' +
-                               '{{#definition.token}}<div class="alert"><strong>Creation token</strong>: {{ definition.token }}</div>{{/definition.token}}' +
                                '<p>{{ definition.description }}</p><div id="toolbar"><a id="add" class="btn">Add</a></div>' +
-                               '<div id="stats"><span class="count">0</span> records in total.</div>' +
                                '<div id="list"></div>'),
 
     events: {
@@ -160,7 +163,7 @@ var ListView = Backbone.View.extend({
         if (this.definition.geomField() !== null) {
             this.map = L.map($map[0]).setView([0, 0], 3);
             this.map.attributionControl.setPrefix('');
-            L.tileLayer(window.DAYBED_SETTINGS.TILES).addTo(this.map);
+            L.tileLayer(Daybed.SETTINGS.TILES).addTo(this.map);
             this.grouplayer.addTo(this.map);
         }
         else {
@@ -172,8 +175,6 @@ var ListView = Backbone.View.extend({
 
     addForm: function (e) {
         e.preventDefault();
-
-        console.log(this.definition);
 
         this.addView = new AddView({map:this.map,
                                     definition:this.definition,
@@ -192,7 +193,7 @@ var ListView = Backbone.View.extend({
 
         var layer = record.getLayer();
         if (layer) {
-            var style = L.Util.extend({}, window.DAYBED_SETTINGS.STYLES['default']);
+            var style = L.Util.extend({}, Daybed.SETTINGS.STYLES['default']);
 
             // Has color ?
             var colorField = this.definition.colorField();
@@ -278,23 +279,6 @@ var ListView = Backbone.View.extend({
         c += '</div>';
         return Mustache.compile(c);
     },
-
-    tableContent: function (definition) {
-        var tpl = '<table class="table"><thead>' +
-                  '{{#fields}}<th><span title="{{description}}">{{name}}</span></th>{{/fields}}' +
-                  '<th>&nbsp;</th></thead><tbody></tbody></table>';
-        return Mustache.compile(tpl)({fields: definition.mainFields()});
-    },
-
-    templateRow: function (definition) {
-        var c = '<tr data-id="{{ id }}">';
-        $(definition.mainFields()).each(function (i, f) {
-            c += '<td>{{ ' + f.name + ' }}</td>';
-        });
-        c += '<td><a href="#" class="close">x</a></td>';
-        c += '</tr>';
-        return Mustache.compile(c);
-    }
 });
 
 
