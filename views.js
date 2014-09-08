@@ -27,7 +27,7 @@ var DefinitionCreate = Daybed.FormView.extend({
 });
 
 
-var AddView = Daybed.RecordFormView.extend({
+var MapRecordView = Daybed.RecordFormView.extend({
     model: MapRecord,
 
     initialize: function () {
@@ -141,6 +141,23 @@ var ListView = Backbone.View.extend({
         this.grouplayer = L.featureGroup();
 
         this.collection = new MapRecordList(definition);
+
+        this.formView = new MapRecordView({map:this.map,
+                                           definition:this.definition,
+                                           collection:this.collection});
+
+        this.listView = new Daybed.TableView({collection: this.collection});
+
+        this.listView.bind('delete', function (record, row) {
+            if (this.map)
+                this.map.removeLayer(record.layer);
+        }, this);
+
+        this.listView.on('edit', function (record, row) {
+            this.addForm(undefined, record, row);
+        }, this);
+
+
         this.collection.bind('add', this.addOne, this);
         // Fit map to layer bounds when both collection and map are ready
         this.collection.bind('sync', function () {
@@ -156,7 +173,7 @@ var ListView = Backbone.View.extend({
 
     render: function () {
         this.$el.html(this.template({definition: this.definition.attributes}));
-        this.$("#list").html(this.tableContent(this.definition));
+        this.$("#list").html(this.listView.render().el);
 
         // If definition contains geometry field, shows the map.
         var $map = this.$("#map");
@@ -173,24 +190,21 @@ var ListView = Backbone.View.extend({
         return this;
     },
 
-    addForm: function (e) {
-        e.preventDefault();
-
-        this.addView = new AddView({map:this.map,
-                                    definition:this.definition,
-                                    collection:this.collection});
-        this.addView.on('close', function () {
+    addForm: function (e, record, row) {
+        if (row) {
+            row.$el.addClass('info');
+            this.formView.instance = record;
+        }
+        this.formView.bind('close', function () {
+            $('tr.info').removeClass('info');
             this.$("a#add").show();
         }, this);
-        this.$("a#add").hide();
-        this.$("a#add").after(this.addView.render().el);
+        this.formView.setup();
+        this.$("a#add").hide()
+                       .after(this.formView.render().el);
     },
 
     addOne: function (record) {
-        var tpl = this.templateRow(this.definition);
-        this.$('table tbody').prepend(tpl(record.toJSON()));
-        this.$('span.count').html(this.collection.length);
-
         var layer = record.getLayer();
         if (layer) {
             var style = L.Util.extend({}, Daybed.SETTINGS.STYLES['default']);
@@ -254,20 +268,6 @@ var ListView = Backbone.View.extend({
                     map.fitBounds(layer.getBounds());
                 layer.openPopup();
             });
-        }
-    },
-
-    deleteRecord: function (e) {
-        e.preventDefault();
-
-        var $row = $(e.target).parents('tr'),
-            id = $row.data('id'),
-            record = this.collection.get(id);
-        if (confirm("Are you sure ?") === true) {
-            record.destroy({wait: true});
-            this.map.removeLayer(record.layer);
-            this.collection.remove(record);
-            $row.remove();
         }
     },
 
