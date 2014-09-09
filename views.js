@@ -104,7 +104,7 @@ var MapRecordView = Daybed.RecordFormView.extend({
     refreshNewLayer: function () {
         if (!this.layer)
             return;
-        var style = L.Util.extend({}, window.DAYBED_SETTINGS.STYLES['default']),
+        var style = L.Util.extend({}, Daybed.SETTINGS.STYLES['default']),
             colorField = this.definition.colorField(),
             iconField = this.definition.iconField();
         var data = this.form.getValue(),
@@ -232,26 +232,26 @@ var ListView = Backbone.View.extend({
             this.grouplayer.addLayer(layer);
 
             // Row and map records highlighting
-            var row = this.$("tr[data-id='" + record.get('id') + "']");
+            var $row = this.$("tr[data-id='" + record.get('id') + "']");
             layer.on('mouseover', function (e) {
-                if (this.setStyle) this.setStyle(window.DAYBED_SETTINGS.STYLES.highlight);
+                if (this.setStyle) this.setStyle(Daybed.SETTINGS.STYLES.highlight);
                 // Pop on top
                 if (typeof this.bringToFront == 'function')
                     this.bringToFront();
-                row.addClass('success')
+                $row.addClass('success')
                    .css("opacity", "0.1")
                    .animate({opacity: 1.0}, 400);
             }, layer);
             layer.on('mouseout',  function (e) {
                 if (this.setStyle) this.setStyle(style);
-                row.removeClass('success');
+                $row.removeClass('success');
             }, layer);
 
             layer.on('click', function (e) {
-                window.scrollTo(0, row.offset().top);
+                window.scrollTo(0, $row.offset().top);
             });
 
-            row.hoverIntent(function () {
+            $row.hoverIntent(function () {
                 if (typeof layer.bounce == 'function')
                     layer.bounce(300, 50);
                 layer.fire('mouseover');
@@ -261,7 +261,7 @@ var ListView = Backbone.View.extend({
             });
 
             var map = this.map;
-            row.on('dblclick', function () {
+            $row.on('dblclick', function () {
                 if (typeof layer.getLatLng == 'function')
                     map.panTo(layer.getLatLng());
                 else
