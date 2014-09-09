@@ -5,7 +5,11 @@ var DefinitionCreate = Daybed.FormView.extend({
         var instance = new this.model({
             id: this.modelname,
             title: this.modelname,
-            description: this.modelname
+            description: this.modelname,
+            fields: [
+                {name: "label", label: "Label", required: true, type: "string"},
+                {name: "location", label: "Location", required: true, type: "point"},
+            ]
         });
         return Daybed.FormView.prototype.setup.call(this, instance);
     },
@@ -122,7 +126,7 @@ var MapRecordView = Daybed.RecordFormView.extend({
         }
         // Refresh Marker color and icon
         if (iconField && typeof this.layer.setIcon == 'function') {
-            var marker = {icon: data[iconField.name], color: color};
+            var marker = {icon: data[iconField.name], markerColor: color, prefix: 'fa'};
             this.layer.setIcon(L.AwesomeMarkers.icon(marker));
         }
     }
@@ -178,7 +182,8 @@ var MapListView = Daybed.TableView.extend({
         var iconField = record.definition.iconField();
         if (iconField && 'point' == record.definition.geomField().type) {
             var marker = L.AwesomeMarkers.icon({
-                color: style.color,
+                prefix: 'fa',
+                markerColor: style.color,
                 icon: record.get(iconField.name)
             });
             layer = L.marker(layer.getLatLng(), {icon: marker, bounceOnAdd: true});
@@ -239,7 +244,7 @@ var MapListView = Daybed.TableView.extend({
 
     templatePopup: function (definition) {
         var c = '<div>';
-        $(definition.mainFields()).each(function (i, f) {
+        _.each(definition.fields(), function (f, i) {
             c += '<li title="' + f.description + '"><strong>' + f.name + '</strong>: {{ ' + f.name + ' }}</li>';
         });
         c += '</div>';
@@ -255,7 +260,7 @@ var MainView = Backbone.View.extend({
                                '<div id="list"></div>'),
 
     events: {
-        "click a#add": "addForm",
+        "click a#add": "_buildForm",
         "click a.close": "deleteRecord"
     },
 
@@ -275,14 +280,14 @@ var MainView = Backbone.View.extend({
                                          collection: this.collection});
 
         this.listView.on('edit', function (record, row) {
-            this.addForm(undefined, record, row);
+            this._buildForm(undefined, record, row);
         }, this);
 
         // Fetch records!
         this.collection.fetch();
     },
 
-    addForm: function (e, record, row) {
+    _buildForm: function (e, record, row) {
         if (row) {
             row.$el.addClass('info');
             this.formView.instance = record;

@@ -56,7 +56,7 @@ var MapModel = Daybed.Definition.extend({
         var geom = function (f) {
             return {type: 'TextArea',
                     editorAttrs: {style: 'display: none'},
-                    help: f.description + ' <span>(on map)</span>'};
+                    help: (f.label || '') + ' <span>(on map)</span>'};
         };
         var fieldMapping = {
             'color': function () {
@@ -90,15 +90,12 @@ var MapModel = Daybed.Definition.extend({
         return schema;
     },
 
-    /**
-     * Returns field names that are not of type geometry.
-     * @returns {Array[string]}
-     */
-    mainFields: function () {
+    fields: function () {
+        var fields = Daybed.Definition.prototype.fields.call(this);
         var geomField = this.geomField();
         if (!geomField)
-            return this.attributes.fields;
-        return this.attributes.fields.filter(function (f) {
+            return fields;
+        return fields.filter(function (f) {
             return f.name != geomField.name;
         });
     },
@@ -110,8 +107,9 @@ var MapModel = Daybed.Definition.extend({
     geomField: function () {
         for (var i in this.attributes.fields) {
             var f = this.attributes.fields[i];
-            if (f.type == 'point' || f.type == 'line' || f.type == 'polygon')
+            if (f.type == 'point' || f.type == 'line' || f.type == 'polygon') {
                 return f;
+            }
         }
         return null;
     },
