@@ -42,9 +42,8 @@ var DaybedMapApp = Backbone.Router.extend({
             this.definition.fetch({error: createIfMissing});
         }
         this.definition.whenReady((function () {
-            var view = new ListView(this.definition);
-            $("#content").html(view.el);  // Leaflet needs its container in DOM
-            view.render();
+            var view = new MainView(this.definition);
+            $("#content").html(view.render().el);
         }).bind(this));
     }
 });

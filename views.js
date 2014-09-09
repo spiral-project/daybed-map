@@ -33,9 +33,17 @@ var MapRecordView = Daybed.RecordFormView.extend({
     initialize: function () {
 
         Daybed.RecordFormView.prototype.initialize.call(this);
-        this.map = this.options.map;
-        this.collection = this.options.collection;
+
+        this.map = null;
         this.layer = null;
+
+        if (this.options.map) {
+            this.setMap(this.options.map);
+        }
+    },
+
+    setMap: function (map) {
+        this.map = map;
 
         var geomField = this.definition.geomField();
         if (!geomField) return;
@@ -73,18 +81,15 @@ var MapRecordView = Daybed.RecordFormView.extend({
     },
 
     cancel: function () {
+        Daybed.RecordFormView.prototype.cancel.apply(this, arguments);
         this.close();
         return false;
     },
 
     success: function () {
+        Daybed.RecordFormView.prototype.success.apply(this, arguments);
         this.close();
         return false;
-    },
-
-    submit: function(e) {
-        Daybed.RecordFormView.prototype.submit.apply(this, arguments);
-        this.collection.create(this.instance, {wait: true});
     },
 
     onDraw: function (e) {
@@ -124,7 +129,126 @@ var MapRecordView = Daybed.RecordFormView.extend({
 });
 
 
-var ListView = Backbone.View.extend({
+var MapListView = Daybed.TableView.extend({
+    initialize: function () {
+        Daybed.TableView.prototype.initialize.apply(this, arguments);
+
+        this.map = null;
+        this.grouplayer = L.featureGroup();
+
+        // Fit map to layer bounds when both collection and map are ready
+        this.collection.bind('sync', function () {
+            // Zoom-in effet
+            setTimeout((function () {
+                if (this.collection.length <= 0)
+                    return;
+                if (this.map)
+                    this.map.fitBounds(this.grouplayer.getBounds());
+            }).bind(this), 750);
+        }, this);
+    },
+
+    render: function () {
+        Daybed.TableView.prototype.render.apply(this, arguments);
+
+        this.map = L.map(this.options.map).setView([0, 0], 3);
+        this.map.attributionControl.setPrefix('');
+        L.tileLayer(Daybed.SETTINGS.TILES).addTo(this.map);
+        this.grouplayer.addTo(this.map);
+
+        return this;
+    },
+
+    addOne: function (record) {
+        var row = Daybed.TableView.prototype.addOne.apply(this, arguments);
+
+        var layer = record.getLayer();
+        if (!layer)
+            return;
+
+        var style = L.Util.extend({}, Daybed.SETTINGS.STYLES['default']);
+
+        // Has color ?
+        var colorField = record.definition.colorField();
+        if (colorField) {
+            style.color = record.get(colorField.name);
+            style.fillColor = style.color;
+        }
+        // Has icon ?
+        var iconField = record.definition.iconField();
+        if (iconField && 'point' == record.definition.geomField().type) {
+            var marker = L.AwesomeMarkers.icon({
+                color: style.color,
+                icon: record.get(iconField.name)
+            });
+            layer = L.marker(layer.getLatLng(), {icon: marker, bounceOnAdd: true});
+        }
+        else {
+            layer.setStyle(style);
+        }
+
+        layer.bindPopup(this.templatePopup(record.definition)(record.toJSON()));
+        this.grouplayer.addLayer(layer);
+
+        // Row and map records highlighting
+        layer.on('mouseover', function (e) {
+            if (this.setStyle) this.setStyle(Daybed.SETTINGS.STYLES.highlight);
+            // Pop on top
+            if (typeof this.bringToFront == 'function')
+                this.bringToFront();
+            $(row).addClass('success')
+               .css("opacity", "0.1")
+               .animate({opacity: 1.0}, 400);
+        }, layer);
+
+        layer.on('mouseout',  function (e) {
+            if (this.setStyle) this.setStyle(style);
+            $(row).removeClass('success');
+        }, layer);
+
+        layer.on('click', function (e) {
+            var offset = $(row).offset();
+            if (offset)
+                window.scrollTo(0, offset.top);
+        });
+
+        var $row = $(row);
+        $row.hoverIntent(function () {
+            if (typeof layer.bounce == 'function')
+                layer.bounce(300, 50);
+            layer.fire('mouseover');
+        },
+        function () {
+            layer.fire('mouseout');
+        });
+
+        var map = this.map;
+        $row.on('dblclick', function () {
+            if (typeof layer.getLatLng == 'function')
+                map.panTo(layer.getLatLng());
+            else
+                map.fitBounds(layer.getBounds());
+            layer.openPopup();
+        });
+    },
+
+    delete: function (record, row) {
+        Daybed.TableView.prototype.delete.apply(this, arguments);
+        this.map.removeLayer(record.layer);
+    },
+
+    templatePopup: function (definition) {
+        var c = '<div>';
+        $(definition.mainFields()).each(function (i, f) {
+            c += '<li title="' + f.description + '"><strong>' + f.name + '</strong>: {{ ' + f.name + ' }}</li>';
+        });
+        c += '</div>';
+        return Mustache.compile(c);
+    },
+});
+
+
+var MainView = Backbone.View.extend({
     template: Mustache.compile('<div id="map"></div>' +
                                '<h1>{{ definition.title }}</h1>' +
                                '<p>{{ definition.description }}</p><div id="toolbar"><a id="add" class="btn">Add</a></div>' +
@@ -137,57 +261,25 @@ var ListView = Backbone.View.extend({
 
     initialize: function (definition) {
         this.definition = definition;
-        this.map = null;
-        this.grouplayer = L.featureGroup();
 
         this.collection = new MapRecordList(definition);
 
-        this.formView = new MapRecordView({map:this.map,
-                                           definition:this.definition,
-                                           collection:this.collection});
+        this.formView = new MapRecordView({definition: definition,
+                                           collection: this.collection});
 
-        this.listView = new Daybed.TableView({collection: this.collection});
-
-        this.listView.bind('delete', function (record, row) {
-            if (this.map)
-                this.map.removeLayer(record.layer);
+        this.formView.bind('created', function (instance) {
+            this.collection.add(instance);
         }, this);
+
+        this.listView = new MapListView({map: "map",
+                                         collection: this.collection});
 
         this.listView.on('edit', function (record, row) {
             this.addForm(undefined, record, row);
         }, this);
 
-
-        this.collection.bind('add', this.addOne, this);
-        // Fit map to layer bounds when both collection and map are ready
-        this.collection.bind('sync', function () {
-            // Zoom-in effet
-            setTimeout((function () {
-                if (this.map)
-                    this.map.fitBounds(this.grouplayer.getBounds());
-            }).bind(this), 1500);
-        }, this);
         // Fetch records!
         this.collection.fetch();
-    },
-
-    render: function () {
-        this.$el.html(this.template({definition: this.definition.attributes}));
-        this.$("#list").html(this.listView.render().el);
-
-        // If definition contains geometry field, shows the map.
-        var $map = this.$("#map");
-        if (this.definition.geomField() !== null) {
-            this.map = L.map($map[0]).setView([0, 0], 3);
-            this.map.attributionControl.setPrefix('');
-            L.tileLayer(Daybed.SETTINGS.TILES).addTo(this.map);
-            this.grouplayer.addTo(this.map);
-        }
-        else {
-            $map.hide();
-            $('#list').width('100%');
-        }
-        return this;
     },
 
     addForm: function (e, record, row) {
@@ -204,80 +296,27 @@ var ListView = Backbone.View.extend({
                        .after(this.formView.render().el);
     },
 
-    addOne: function (record) {
-        var layer = record.getLayer();
-        if (layer) {
-            var style = L.Util.extend({}, Daybed.SETTINGS.STYLES['default']);
+    render: function () {
+        this.$el.html(this.template({definition: this.definition.attributes}));
 
-            // Has color ?
-            var colorField = this.definition.colorField();
-            if (colorField) {
-                style.color = record.get(colorField.name);
-                style.fillColor = style.color;
+        // Leaflet cannot render on detached DOM node
+        $(document).on('DOMNodeInserted', function(e) {
+            if (e.target.id == this.$el.attr('id')) {
+
+                this.$("#list").html(this.listView.render().el);
+
+                // If definition contains geometry field, shows the map.
+                if (this.definition.geomField() !== null) {
+                    this.formView.setMap(this.listView.map);
+                }
+                else {
+                    this.$("#map").hide();
+                    $('#list').width('100%');
+                }
             }
-            // Has icon ?
-            var iconField = this.definition.iconField();
-            if (iconField && 'point' == record.definition.geomField().type) {
-                var marker = L.AwesomeMarkers.icon({
-                    color: style.color,
-                    icon: record.get(iconField.name)
-                });
-                layer = L.marker(layer.getLatLng(), {icon: marker, bounceOnAdd: true});
-            }
-            else {
-                layer.setStyle(style);
-            }
+        }.bind(this));
 
-            layer.bindPopup(this.templatePopup(this.definition)(record.toJSON()));
-            this.grouplayer.addLayer(layer);
-
-            // Row and map records highlighting
-            var $row = this.$("tr[data-id='" + record.get('id') + "']");
-            layer.on('mouseover', function (e) {
-                if (this.setStyle) this.setStyle(Daybed.SETTINGS.STYLES.highlight);
-                // Pop on top
-                if (typeof this.bringToFront == 'function')
-                    this.bringToFront();
-                $row.addClass('success')
-                   .css("opacity", "0.1")
-                   .animate({opacity: 1.0}, 400);
-            }, layer);
-            layer.on('mouseout',  function (e) {
-                if (this.setStyle) this.setStyle(style);
-                $row.removeClass('success');
-            }, layer);
-
-            layer.on('click', function (e) {
-                window.scrollTo(0, $row.offset().top);
-            });
-
-            $row.hoverIntent(function () {
-                if (typeof layer.bounce == 'function')
-                    layer.bounce(300, 50);
-                layer.fire('mouseover');
-            },
-            function () {
-                layer.fire('mouseout');
-            });
-
-            var map = this.map;
-            $row.on('dblclick', function () {
-                if (typeof layer.getLatLng == 'function')
-                    map.panTo(layer.getLatLng());
-                else
-                    map.fitBounds(layer.getBounds());
-                layer.openPopup();
-            });
-        }
-    },
-
-    templatePopup: function (definition) {
-        var c = '<div>';
-        $(definition.mainFields()).each(function (i, f) {
-            c += '<li title="' + f.description + '"><strong>' + f.name + '</strong>: {{ ' + f.name + ' }}</li>';
-        });
-        c += '</div>';
-        return Mustache.compile(c);
+        return this;
     },
 });
 
