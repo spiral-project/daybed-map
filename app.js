@@ -40,10 +40,6 @@ var DaybedMapApp = Backbone.Router.extend({
                 }
             };
             this.definition.fetch({error: createIfMissing});
-
-            // Do we know its token already ?
-            var storage = window.localStorage || {};
-            this.definition.set('token', storage["daybed.token." + modelname]);
         }
         this.definition.whenReady((function () {
             var view = new ListView(this.definition);
