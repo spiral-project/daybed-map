@@ -35,9 +35,10 @@ var DaybedMapApp = Backbone.Router.extend({
 
             // Redirect to creation page if unknown
             var createIfMissing = function (model, xhr) {
-                if (xhr.status == 404) {
-                    app.navigate(modelname + '/create', {trigger:true});
+                if (xhr.status == 401 || xhr.status == 403) {
+                    app.navigate('');
                 }
+                app.navigate(modelname + '/create', {trigger:true});
             };
             this.definition.fetch({error: createIfMissing});
         }

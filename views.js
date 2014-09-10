@@ -11,7 +11,8 @@ var DefinitionCreate = Daybed.FormView.extend({
                 {name: "location", label: "Location", required: true, type: "point"},
             ]
         });
-        return Daybed.FormView.prototype.setup.call(this, instance);
+        this.options.title = 'Create map ' + this.modelname;
+        Daybed.FormView.prototype.setup.call(this, instance);
     },
 
     cancel: function () {
@@ -60,25 +61,42 @@ var MapRecordView = Daybed.RecordFormView.extend({
         };
         this.handler = handlers[geomField.type];
         this.map.on('draw:created', this.onDraw, this);
-        // Refresh newly created layer on form change
-        this.form.on('change', this.refreshNewLayer, this);
     },
 
     render: function () {
         Daybed.RecordFormView.prototype.render.apply(this, arguments);
-        if (this.handler) {
-            this.handler.enable();
-            this.$el.append('<span class="map-help alert">Click on map</span>');
+
+        if (this.creation) {
+            if (this.handler) {
+                this.handler.enable();
+                this.$el.append('<span class="map-help alert">Click on map</span>');
+            }
         }
+        else {
+            var layer = this.instance ? this.instance.getLayer() : null;
+            if (layer) {
+                this._backup = layer;
+                this.map.removeLayer(this._backup);
+                // Bind instance to editable layer
+                this.instance.layer = null;
+                layer = this.instance.getLayer();
+                this.onDraw({layer: layer});
+
+                this.$el.append('<span class="map-help alert">Drag to update</span>');
+            }
+        }
+
         return this;
     },
 
     close: function (e) {
         if (this.handler) {
             this.handler.disable();
-            if (this.layer) this.map.removeLayer(this.layer);
-            this.layer = null;
         }
+        if (this.creation && this.layer) {
+            this.map.removeLayer(this.layer);
+        }
+        this.layer = null;
         this.trigger('close');
         this.remove();
         return false;
@@ -87,6 +105,10 @@ var MapRecordView = Daybed.RecordFormView.extend({
     cancel: function () {
         Daybed.RecordFormView.prototype.cancel.apply(this, arguments);
         this.close();
+        if (this._backup) {
+            this.instance.layer = this._backup;
+            this.map.addLayer(this._backup);
+        }
         return false;
     },
 
@@ -100,14 +122,18 @@ var MapRecordView = Daybed.RecordFormView.extend({
         this.layer = e.layer;
         this.refreshNewLayer();
         this.layer.addTo(this.map);
-        this.$el.find('.map-help').remove();
+
+        this.$el.find('.map-help').text("Drag to update");
 
         // Make it editable and save while editing
         this.layer[this.layer instanceof L.Marker ? 'dragging' : 'editing'].enable();
         this.layer.on('dragend edit', function storefield (e) {
-            this.instance.setLayer(e.target);
+            this.instance.setLayer(this.layer);
         }, this);
         this.layer.fire('edit');  // store once
+
+        // Refresh newly created layer on form change
+        this.form.on('change', this.refreshNewLayer, this);
     },
 
     refreshNewLayer: function () {
@@ -170,28 +196,6 @@ var MapListView = Daybed.TableView.extend({
         if (!layer)
             return;
 
-        var style = L.Util.extend({}, Daybed.SETTINGS.STYLES['default']);
-
-        // Has color ?
-        var colorField = record.definition.colorField();
-        if (colorField) {
-            style.color = record.get(colorField.name);
-            style.fillColor = style.color;
-        }
-        // Has icon ?
-        var iconField = record.definition.iconField();
-        if (iconField && 'point' == record.definition.geomField().type) {
-            var marker = L.AwesomeMarkers.icon({
-                prefix: 'fa',
-                markerColor: style.color,
-                icon: record.get(iconField.name)
-            });
-            layer = L.marker(layer.getLatLng(), {icon: marker, bounceOnAdd: true});
-        }
-        else {
-            layer.setStyle(style);
-        }
-
         layer.bindPopup(this.templatePopup(record.definition)(record.toJSON()));
         this.grouplayer.addLayer(layer);
 
@@ -219,8 +223,10 @@ var MapListView = Daybed.TableView.extend({
 
         var $row = $(row);
         $row.hoverIntent(function () {
-            if (typeof layer.bounce == 'function')
-                layer.bounce(300, 50);
+            if (typeof layer.bounce == 'function') {
+                if (layer._map)
+                    layer.bounce(300, 50);
+            }
             layer.fire('mouseover');
         },
         function () {

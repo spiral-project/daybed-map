@@ -20,7 +20,30 @@ var MapRecord = Daybed.Record.extend({
             if (typeof coords === 'string') {
                 coords = JSON.parse(coords);
             }
-            this.layer = factories[geomfield.type](coords);
+            this.layer = coords ? factories[geomfield.type](coords) : null;
+
+
+            var style = L.Util.extend({}, Daybed.SETTINGS.STYLES['default']);
+
+            // Has color ?
+            var colorField = this.definition.colorField();
+            if (colorField) {
+                style.color = this.get(colorField.name);
+                style.fillColor = style.color;
+            }
+            // Has icon ?
+            var iconField = this.definition.iconField();
+            if (iconField && 'point' == this.definition.geomField().type) {
+                var marker = L.AwesomeMarkers.icon({
+                    prefix: 'fa',
+                    markerColor: style.color,
+                    icon: this.get(iconField.name)
+                });
+                this.layer = L.marker(this.layer.getLatLng(), {icon: marker});
+            }
+            else {
+                this.layer.setStyle(style);
+            }
         }
         return this.layer;
     },

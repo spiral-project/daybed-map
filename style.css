@@ -42,3 +42,13 @@ footer {
 .field-error {
     color: red;
 }
+
+.bbf-list li {
+    width: 240px;
+    border-bottom: solid 1px gray;
+    margin-bottom: 5px;
+}
+
+.bbf-list-modal {
+    width: 200px;
+}
