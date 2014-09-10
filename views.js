@@ -39,38 +39,27 @@ var MapRecordView = Daybed.RecordFormView.extend({
 
         Daybed.RecordFormView.prototype.initialize.call(this);
 
-        this.map = null;
+        this.map = this.options.map || null;
         this.layer = null;
-
-        if (this.options.map) {
-            this.setMap(this.options.map);
-        }
-    },
-
-    setMap: function (map) {
-        this.map = map;
-
-        var geomField = this.definition.geomField();
-        if (!geomField) return;
-
-        // Assign dedicated layer editor from geometry field type
-        var handlers = {
-            'point': new L.Draw.Marker(this.map),
-            'line': new L.Draw.Polyline(this.map),
-            'polygon': new L.Draw.Polygon(this.map)
-        };
-        this.handler = handlers[geomField.type];
-        this.map.on('draw:created', this.onDraw, this);
     },
 
     render: function () {
         Daybed.RecordFormView.prototype.render.apply(this, arguments);
 
+        var geomField = this.definition.geomField();
+        if (!geomField) return;
+
         if (this.creation) {
-            if (this.handler) {
-                this.handler.enable();
-                this.$el.append('<span class="map-help alert">Click on map</span>');
-            }
+            // Assign dedicated layer editor from geometry field type
+            var handlers = {
+                'point': new L.Draw.Marker(this.map),
+                'line': new L.Draw.Polyline(this.map),
+                'polygon': new L.Draw.Polygon(this.map)
+            };
+            this.handler = handlers[geomField.type];
+            this.map.on('draw:created', this.onDraw, this);
+            this.handler.enable();
+            this.$el.append('<span class="map-help alert">Click on map</span>');
         }
         else {
             var layer = this.instance ? this.instance.getLayer() : null;
@@ -93,9 +82,12 @@ var MapRecordView = Daybed.RecordFormView.extend({
         if (this.handler) {
             this.handler.disable();
         }
-        if (this.creation && this.layer) {
-            this.map.removeLayer(this.layer);
+        if (this.creation) {
+            if (this.layer)
+                this.map.removeLayer(this.layer);
         }
+
+        this.instance = null;
         this.layer = null;
         this.trigger('close');
         this.remove();
@@ -104,11 +96,14 @@ var MapRecordView = Daybed.RecordFormView.extend({
 
     cancel: function () {
         Daybed.RecordFormView.prototype.cancel.apply(this, arguments);
-        this.close();
-        if (this._backup) {
+        if (!this.creation) {
+            this.map.removeLayer(this.layer);
             this.instance.layer = this._backup;
+            this.instance.setLayer(this._backup);
             this.map.addLayer(this._backup);
+            this._backup = null;
         }
+        this.close();
         return false;
     },
 
@@ -126,7 +121,8 @@ var MapRecordView = Daybed.RecordFormView.extend({
         this.$el.find('.map-help').text("Drag to update");
 
         // Make it editable and save while editing
-        this.layer[this.layer instanceof L.Marker ? 'dragging' : 'editing'].enable();
+        this.handler = this.layer[this.layer instanceof L.Marker ? 'dragging' : 'editing'];
+        this.handler.enable();
         this.layer.on('dragend edit', function storefield (e) {
             this.instance.setLayer(this.layer);
         }, this);
@@ -318,7 +314,7 @@ var MainView = Backbone.View.extend({
 
                 // If definition contains geometry field, shows the map.
                 if (this.definition.geomField() !== null) {
-                    this.formView.setMap(this.listView.map);
+                    this.formView.map = this.listView.map;
                 }
                 else {
                     this.$("#map").hide();
