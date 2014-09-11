@@ -221,7 +221,7 @@ var MapListView = Daybed.TableView.extend({
         $row.hoverIntent(function () {
             if (typeof layer.bounce == 'function') {
                 if (layer._map)
-                    layer.bounce(300, 50);
+                    layer.bounce({duration: 300, height: 50});
             }
             layer.fire('mouseover');
         },
