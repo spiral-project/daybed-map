@@ -1,4 +1,4 @@
-window.Daybed.SETTINGS.SERVER = 'https://daybed.lolnet.org';
+window.Daybed.SETTINGS.SERVER = 'https://daybed.io/v1';
 
 window.Daybed.SETTINGS.TILES = (window.Daybed.SETTINGS.TILES || "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png");
 
