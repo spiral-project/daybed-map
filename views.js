@@ -4,8 +4,8 @@ var DefinitionCreate = Daybed.FormView.extend({
     setup: function () {
         var instance = new this.model({
             id: this.modelname,
-            title: this.modelname,
-            description: this.modelname,
+            title: this.modelname.replace(window.Daybed.SETTINGS.PREFIX, ''),
+            description: this.modelname.replace(window.Daybed.SETTINGS.PREFIX, ''),
             fields: [
                 {name: "label", label: "Label", required: true, type: "string"},
                 {name: "location", label: "Location", required: true, type: "point"},
