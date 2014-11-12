@@ -207,7 +207,7 @@ var MapListView = Daybed.TableView.extend({
         }, layer);
 
         layer.on('mouseout',  function (e) {
-            if (this.setStyle) this.setStyle(style);
+            if (this.setStyle) this.setStyle(Daybed.SETTINGS.STYLES.default);
             $(row).removeClass('success');
         }, layer);
 
@@ -292,13 +292,15 @@ var MainView = Backbone.View.extend({
     _buildForm: function (e, record, row) {
         if (row) {
             row.$el.addClass('info');
-            this.formView.instance = record;
+            this.formView.setup(record);
+        }
+        else {
+            this.formView.setup();
         }
         this.formView.bind('close', function () {
             $('tr.info').removeClass('info');
             this.$("a#add").show();
         }, this);
-        this.formView.setup();
         this.$("a#add").hide()
                        .after(this.formView.render().el);
     },
