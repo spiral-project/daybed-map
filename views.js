@@ -8,7 +8,9 @@ var DefinitionCreate = Daybed.FormView.extend({
             description: this.modelname,
             fields: [
                 {name: "label", label: "Label", required: true, type: "string"},
-                {name: "location", label: "Location", required: true, type: "point"}
+                {name: "location", label: "Location", required: true, type: "point"},
+                {name: "color", label: "Color", required: true, type: "color"},
+                {name: "icon", label: "Icon", required: true, type: "icon"}
             ]
         });
         this.options.title = 'Create map ' + this.modelname;
@@ -251,7 +253,7 @@ var MapListView = Daybed.TableView.extend({
         });
         c += '</div>';
         return Mustache.compile(c);
-    }
+    },
 });
 
 
@@ -326,7 +328,7 @@ var MainView = Backbone.View.extend({
         }.bind(this));
 
         return this;
-    }
+    },
 });
 
 
